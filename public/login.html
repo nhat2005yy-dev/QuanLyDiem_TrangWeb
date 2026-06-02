@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Nhập | Quản Lý Điểm Sinh Viên</title>
+    <!-- Nhúng CSS vừa viết -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="login-container">
+        
+        <!-- === KHU VỰC ĐĂNG NHẬP === -->
+        <div id="login-section" class="auth-form">
+            <h1>Hệ Thống Quản Lý</h1>
+            <p class="subtitle">Vui lòng đăng nhập để tiếp tục</p>
+            
+            <!-- form chưa gắn JS gọi API vội, làm cái dễ (UI) trước -->
+            <form id="loginForm">
+                <div class="input-group">
+                    <label for="username">Tên đăng nhập (MASV/MAGV/...)</label>
+                    <input type="text" id="username" placeholder="Nhập tài khoản..." required autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-primary">Đăng Nhập</button><!--nút đăng nhập-->
+            </form>
+
+            <!-- <p class="switch-auth">
+                Chưa có tài khoản? <a href="#" onclick="toggleAuth(event)">Tạo Mới Ngay</a>
+            </p> -->
+        </div>
+
+        <!-- === KHU VỰC ĐĂNG KÝ === -->
+        <!-- <div id="register-section" class="auth-form hidden">
+            <h1>Tạo Tài Khoản</h1>
+            <p class="subtitle">Đăng ký thành viên cho hệ thống</p>
+            
+            <form id="registerForm">
+                <div class="input-group">
+                    <label for="reg-username">Tên truy cập mới</label>
+                    <input type="text" id="reg-username" placeholder="Mã của bạn..." required autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <label for="reg-password">Tạo Mật khẩu</label>
+                    <input type="password" id="reg-password" placeholder="••••••••" required>
+                </div>
+                <div class="input-group">
+                    <label for="reg-role">Phân Quyền (Nhóm của bạn)</label>
+                    <select id="reg-role">
+                        <option value="SINHVIEN">Sinh viên</option>
+                        <option value="KHOA">Giảng viên / Khoa</option>
+                        <option value="PGV">Phòng Giáo Vụ (Full Tùy Chọn)</option>
+                    </select>
+                </div>
+                <button type="button" class="btn-primary" onclick="alert('API Đăng ký chuẩn bị lên sóng!')">Đăng Ký Tài Khoản</button>
+            </form>
+
+            <p class="switch-auth">
+                Đã có sẵn tài khoản? <a href="#" onclick="toggleAuth(event)">Trở lại đăng nhập</a>
+            </p>
+        </div> -->
+        
+    </div>
+
+    <script>
+        //1. JS thuần xử lý qua lại giữa các form
+        function toggleAuth(e) {
+            if(e) e.preventDefault();
+            document.getElementById('login-section').classList.toggle('hidden');
+            document.getElementById('register-section').classList.toggle('hidden');
+        }
+
+        // 2. Xử lý sự kiện Đăng Nhập
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); // Không cho trang load lại
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                // Gửi yêu cầu đến API
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ USERNAME: username, PASSWORD: password })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Nếu Server báo OK, lưu thông tin vào localStorage và chuyển hướng
+                    localStorage.setItem('user', JSON.stringify({
+                        username: result.data.username,
+                        role: result.data.role
+                    }));
+                    localStorage.setItem('token', result.token);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    alert('Lỗi: ' + (result.message || 'Sai thông tin đăng nhập!'));
+                }
+            } catch (err) {
+                console.error('Lỗi kết nối:', err);
+                alert('Không thể kết nối đến server. Hãy chắc chắn Node.js đang chạy!');
+            }
+        });
+    </script>
+</body>
+</html>

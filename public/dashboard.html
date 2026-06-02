@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Điểm | Trang Chủ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>
+                    <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                    <span class="logo-text">Academic Curator</span>
+                </h2>
+                <button class="close-btn" id="closeSidebar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active" id="menu-trangchu">
+                        <a href="#"><i class="fa-solid fa-house"></i> <span>Trang chủ</span></a>
+                    </li>
+                    
+                    <li class="nav-header" id="header-quanly" style="display: none;">Quản Lý</li>
+                    <li class="nav-item" id="menu-khoa" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-building"></i> <span>Quản lý Khoa</span></a>
+                    </li>
+                    <li class="nav-item" id="menu-lop" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-users-rectangle"></i> <span>Quản lý Lớp</span></a>
+                    </li>
+                    <li class="nav-item" id="menu-monhoc" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-book"></i> <span>Quản lý Môn học</span></a>
+                    </li>
+                    <li class="nav-item" id="menu-giangvien" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-chalkboard-user"></i> <span>Quản lý Giảng viên</span></a>
+                    </li>
+                    <li class="nav-item" id="menu-sinhvien" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-user-graduate"></i> <span>Quản lý Sinh viên</span></a>
+                    </li>
+                    
+                    <li class="nav-header" id="header-hoctap" style="display: none;">Học Tập</li>
+                    <li class="nav-item" id="menu-loptc" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-book-open"></i> <span>Mở lớp tín chỉ</span></a>
+                    </li>
+                    <li class="nav-item" id="menu-dangky" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-pen-to-square"></i> <span>Đăng ký lớp tín chỉ</span></a>
+                    </li>
+                    <li class="nav-item" id="menu-diem" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-file-invoice"></i> <span>Xem phiếu điểm</span></a>
+                    </li>
+                    <li class="nav-item" id="menu-nhapdiem" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-pen-to-square"></i> <span>Nhập điểm sinh viên</span></a>
+                    </li>
+
+                    <li class="nav-header" id="header-hethong" style="display: none;">Hệ Thống</li>
+                    <li class="nav-item" id="menu-taotk" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-user-plus"></i> <span>Tạo tài khoản</span></a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button class="logout-btn" id="logoutBtn">
+                    <i class="fa-solid fa-right-from-bracket"></i> <span>Đăng xuất</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- HEADER -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button id="toggleSidebar" class="menu-btn"><i class="fa-solid fa-bars"></i></button>
+                    <div class="breadcrumb" id="breadcrumb">Trang chủ</div>
+                </div>
+                
+                <div class="header-right">
+                    <div class="notifications">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="badge">3</span>
+                    </div>
+                    <div class="user-profile">
+                        <div class="user-info">
+                            <span class="user-name" id="displayUsername">Loading...</span>
+                            <span class="user-role" id="displayRole">Role</span>
+                        </div>
+                        <div class="avatar">
+                            <img src="https://ui-avatars.com/api/?name=User&background=4f46e5&color=fff" id="avatarImg" alt="Avatar">
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- DASHBOARD CONTENT -->
+            <div class="content-wrapper">
+                <div class="welcome-banner">
+                    <div class="welcome-text">
+                        <h1 id="welcomeTitle">Chào mừng trở lại!</h1>
+                        <p>Hệ thống Quản lý Điểm và Tín chỉ thông minh.</p>
+                    </div>
+                    <div class="welcome-image">
+                        <i class="fa-solid fa-user-graduate fa-5x"></i>
+                    </div>
+                </div>
+
+                <div class="stats-grid" id="dashboardStats">
+                    <div class="stat-card">
+                        <div class="stat-icon purple"><i class="fa-solid fa-book"></i></div>
+                        <div class="stat-details">
+                            <h3>Học kỳ hiện tại</h3>
+                            <p>HK I - 2026</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="fa-regular fa-calendar-check"></i></div>
+                        <div class="stat-details">
+                            <h3>Trạng thái</h3>
+                            <p>Đang mở đăng ký</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i class="fa-solid fa-chart-line"></i></div>
+                        <div class="stat-details">
+                            <h3>Cập nhật</h3>
+                            <p>Hệ thống hoạt động tốt</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="action-panel" id="mainPanel">
+                    <div class="panel-header">
+                        <h3 id="panelTitle">Tổng quan</h3>
+                        <div class="panel-actions">
+                            <button class="btn-icon"><i class="fa-solid fa-ellipsis"></i></button>
+                        </div>
+                    </div>
+                    <div class="panel-body" id="panelContent">
+                        <div class="empty-state">
+                            <i class="fa-regular fa-compass empty-icon"></i>
+                            <p>Chọn một chức năng từ danh mục bên trái để bắt đầu làm việc.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL CONTAINER (Dynamic) -->
+    <div class="modal-overlay" id="globalModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Tiêu đề Modal</h3>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- Form injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/monHocModule.js"></script>
+    <script src="js/giangVienModule.js"></script>
+    <script src="js/lopTinChiModule.js"></script>
+    <script src="js/dangKyModule.js"></script>
+    <script src="js/nhapDiemModule.js"></script>
+    <script src="js/diemModule.js"></script>
+    <script src="js/taoTaiKhoanModule.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
