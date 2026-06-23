@@ -18,15 +18,17 @@ async function renderMonHocManager(container) {
         
         if (data.success && data.data.length > 0) {
             data.data.forEach(item => {
+                const cleanMamh = item.MAMH ? item.MAMH.trim() : '';
+                const cleanTenmh = item.TENMH ? item.TENMH.trim() : '';
                 html += `
                     <tr>
-                        <td><strong>${item.MAMH}</strong></td>
-                        <td>${item.TENMH}</td>
+                        <td><strong>${cleanMamh}</strong></td>
+                        <td>${cleanTenmh}</td>
                         <td>${item.SOTINCHI_LT || 0}</td>
                         <td>${item.SOTINCHI_TH || 0}</td>
                         <td class="action-btns">
-                            <button class="btn-sm btn-secondary" onclick="showMonHocForm('${item.MAMH}', '${item.TENMH}', ${item.SOTINCHI_LT || 0}, ${item.SOTINCHI_TH || 0})">Sửa</button>
-                            <button class="btn-sm btn-danger" onclick="deleteMonHoc('${item.MAMH}')">Xóa</button>
+                            <button class="btn-sm btn-secondary" onclick="showMonHocForm('${cleanMamh}', '${cleanTenmh}', ${item.SOTINCHI_LT || 0}, ${item.SOTINCHI_TH || 0})">Sửa</button>
+                            <button class="btn-sm btn-danger" onclick="deleteMonHoc('${cleanMamh}')">Xóa</button>
                         </td>
                     </tr>
                 `;
@@ -40,16 +42,18 @@ async function renderMonHocManager(container) {
 }
 
 window.showMonHocForm = (mamh = '', tenmh = '', stc_lt = 0, stc_th = 0) => {
-    const isEdit = !!mamh;
+    const cleanMamh = mamh.trim().toUpperCase();
+    const cleanTenmh = tenmh.trim();
+    const isEdit = !!cleanMamh;
     const formHTML = `
         <form id="monHocForm">
             <div class="form-group">
                 <label>Mã Môn Học</label>
-                <input type="text" id="mh_mamh" value="${mamh}" ${isEdit ? 'readonly style="background:#f3f4f6"' : 'required'}>
+                <input type="text" id="mh_mamh" value="${cleanMamh}" maxlength="10" ${isEdit ? 'readonly style="background:#f3f4f6"' : 'required'} oninput="this.value = this.value.toUpperCase().replace(/\\s/g, '')">
             </div>
             <div class="form-group">
                 <label>Tên Môn Học</label>
-                <input type="text" id="mh_tenmh" value="${tenmh}" required>
+                <input type="text" id="mh_tenmh" value="${cleanTenmh}" maxlength="50" required>
             </div>
             <div style="display:flex; gap:10px;">
                 <div class="form-group" style="flex:1;">
@@ -71,14 +75,22 @@ window.showMonHocForm = (mamh = '', tenmh = '', stc_lt = 0, stc_th = 0) => {
 
     document.getElementById('monHocForm').onsubmit = async (e) => {
         e.preventDefault();
+        const rawMAMH = document.getElementById('mh_mamh').value.toUpperCase().trim().replace(/\s/g, '');
+        const rawTenMH = document.getElementById('mh_tenmh').value.trim();
+
+        if (!rawMAMH || !rawTenMH) {
+            alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+            return;
+        }
+
         const bodyData = {
-            MAMH: document.getElementById('mh_mamh').value,
-            TENMH: document.getElementById('mh_tenmh').value,
-            SOTINCHI_LT: parseInt(document.getElementById('mh_stclt').value),
-            SOTINCHI_TH: parseInt(document.getElementById('mh_stcth').value)
+            MAMH: rawMAMH,
+            TENMH: rawTenMH,
+            SOTINCHI_LT: parseInt(document.getElementById('mh_stclt').value) || 0,
+            SOTINCHI_TH: parseInt(document.getElementById('mh_stcth').value) || 0
         };
         const method = isEdit ? 'PUT' : 'POST';
-        const url = isEdit ? `/api/monhoc/${bodyData.MAMH}` : `/api/monhoc`;
+        const url = isEdit ? `/api/monhoc/${cleanMamh}` : `/api/monhoc`;
 
         try {
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyData) });
@@ -92,9 +104,10 @@ window.showMonHocForm = (mamh = '', tenmh = '', stc_lt = 0, stc_th = 0) => {
 };
 
 window.deleteMonHoc = async (mamh) => {
-    if(!confirm(`Bạn có chắc muốn xóa Môn Học ${mamh}?`)) return;
+    const cleanMamh = mamh.trim();
+    if(!confirm(`Bạn có chắc muốn xóa Môn Học ${cleanMamh}?`)) return;
     try {
-        const res = await fetch(`/api/monhoc/${mamh}`, { method: 'DELETE' });
+        const res = await fetch(`/api/monhoc/${cleanMamh}`, { method: 'DELETE' });
         const result = await res.json();
         if(result.success) renderMonHocManager(document.getElementById('panelContent'));
         else alert(result.message);

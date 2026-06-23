@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const dotenv = require('dotenv');
 const { connectDB } = require('./config/db');
@@ -36,10 +37,13 @@ app.use('/api', khoaRoutes);
 app.use('/api', monHocRoutes);
 app.use('/api', giangVienRoutes);
 
-connectDB();
+//tự động dẫn đến trang đăng nhập
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running at http://localhost:${PORT}`);
 });

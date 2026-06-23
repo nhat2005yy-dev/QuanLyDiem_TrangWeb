@@ -2,21 +2,38 @@
 // MODULE NHẬP ĐIỂM (GIẢNG VIÊN / PGV)
 // ==========================================
 async function renderNhapDiemManager(container) {
-    let nk = new Date().getFullYear() + '-' + (new Date().getFullYear() + 1);
-    let hk = 1;
+    const currentYear = new Date().getFullYear();
+    const maxFutureYear = currentYear + 3;
+    
+    // Xác định năm mặc định theo niên khóa hiện hành
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const defaultStartYear = currentMonth >= 8 ? currentYear : currentYear - 1;
+
+    let fromYearOptions = '';
+    let toYearOptions = '';
+    for (let y = 2020; y <= maxFutureYear; y++) {
+        fromYearOptions += `<option value="${y}" ${y === defaultStartYear ? 'selected' : ''}>${y}</option>`;
+        toYearOptions += `<option value="${y}" ${y === defaultStartYear ? 'selected' : ''}>${y}</option>`;
+    }
 
     let html = `
         <div style="margin-bottom: 20px; display:flex; gap:10px; align-items:flex-end; flex-wrap: wrap;">
             <div class="form-group" style="margin-bottom:0;">
-                <label>Niên khóa</label>
-                <input type="text" id="nd_nk" value="${nk}" style="width:150px;">
+                <label>Từ năm</label>
+                <select id="nd_from_nk" style="width:120px;">${fromYearOptions}</select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label>Đến năm</label>
+                <select id="nd_to_nk" style="width:120px;">${toYearOptions}</select>
             </div>
             <div class="form-group" style="margin-bottom:0;">
                 <label>Học kỳ</label>
                 <select id="nd_hk" style="width:100px;">
-                    <option value="1" ${hk==1?'selected':''}>1</option>
-                    <option value="2" ${hk==2?'selected':''}>2</option>
-                    <option value="3" ${hk==3?'selected':''}>3</option>
+                    <option value="ALL">Tất cả</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
                 </select>
             </div>
             <button class="btn btn-primary" onclick="loadNhapDiemClasses()">Danh sách lớp</button>
@@ -43,10 +60,17 @@ async function renderNhapDiemManager(container) {
 }
 
 window.loadNhapDiemClasses = async () => {
-    const nk = document.getElementById('nd_nk').value;
-    const hk = document.getElementById('nd_hk').value;
+    const fromYear = parseInt(document.getElementById('nd_from_nk').value);
+    const toYear = parseInt(document.getElementById('nd_to_nk').value);
+    const hkFilter = document.getElementById('nd_hk').value;
     const container = document.getElementById('nd_classesContainer');
     
+    if (toYear < fromYear) {
+        alert('Năm kết thúc phải lớn hơn hoặc bằng năm bắt đầu!');
+        container.innerHTML = '<p style="text-align:center; padding:10px; color:red;">Niên khóa lọc không hợp lệ</p>';
+        return;
+    }
+
     // Ẩn bảng sinh viên nếu đang mở
     document.getElementById('nd_studentsSection').style.display = 'none';
 
@@ -57,38 +81,109 @@ window.loadNhapDiemClasses = async () => {
     // Nếu là giảng viên (KHOA), chỉ lấy lớp của giảng viên đó
     let magvParam = '';
     if (user.role === 'KHOA') {
-        magvParam = `&MAGV=${user.username}`;
+        magvParam = `&MAGV=${user.username.trim().toUpperCase()}`;
     }
 
     container.innerHTML = '<div style="text-align:center; padding: 20px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
 
     try {
-        const res = await fetch(`/api/classes?NIENKHOA=${nk}&HOCKY=${hk}${magvParam}`);
-        const data = await res.json();
-        
-        if (!data.success) {
-            container.innerHTML = `<p style="color:red;">Lỗi data: ${data.message}</p>`;
-            return;
+        const promises = [];
+        for (let year = fromYear; year <= toYear; year++) {
+            const nk = `${year}-${year+1}`;
+            const hks = hkFilter === 'ALL' ? [1, 2, 3] : [parseInt(hkFilter)];
+            for (const hkVal of hks) {
+                promises.push(
+                    fetch(`/api/classes?NIENKHOA=${nk}&HOCKY=${hkVal}${magvParam}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                return data.data;
+                            }
+                            return [];
+                        })
+                        .catch(() => [])
+                );
+            }
         }
+
+        const results = await Promise.all(promises);
+        const allClasses = results.flat();
 
         let html = `
             <table class="data-table" style="font-size:0.9rem;">
-                <thead><tr><th>Mã LTC</th><th>Mã MH</th><th>Tên MH</th><th>Nhóm</th><th>Giảng Viên</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Mã LTC</th>
+                        <th>Niên Khóa</th>
+                        <th>Học Kỳ</th>
+                        <th>Mã MH</th>
+                        <th>Tên MH</th>
+                        <th>Nhóm</th>
+                        <th>Giảng Viên</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
                 <tbody>
         `;
         
-        if (data.data.length > 0) {
-            data.data.forEach(item => {
+        if (allClasses.length > 0) {
+            allClasses.forEach(item => {
+                const cleanNienkhoa = item.NIENKHOA ? item.NIENKHOA.trim() : '';
+                const cleanMamh = item.MAMH ? item.MAMH.trim() : '';
+                const cleanTenmh = item.TENMH ? item.TENMH.trim() : '';
+                const cleanHotenGv = item.HOTEN_GV ? item.HOTEN_GV.trim() : '';
+
+                // Tính toán trạng thái thời gian thực của lớp
+                let statusText = '';
+                let isFuture = false;
+                if (item.HUYLOP) {
+                    statusText = '<span style="color:red">Đã Hủy</span>';
+                } else {
+                    const parts = cleanNienkhoa.split('-');
+                    if (parts.length === 2) {
+                        const startYear = parseInt(parts[0]);
+                        const endYear = parseInt(parts[1]);
+                        const now = new Date();
+                        let startDate, endDate;
+                        const hkVal = parseInt(item.HOCKY);
+
+                        if (hkVal === 1) {
+                            startDate = new Date(startYear, 8, 1, 0, 0, 0, 0); // 1/9
+                            endDate = new Date(endYear, 0, 1, 23, 59, 59, 999); // 1/1
+                        } else if (hkVal === 2) {
+                            startDate = new Date(endYear, 0, 2, 0, 0, 0, 0); // 2/1
+                            endDate = new Date(endYear, 6, 7, 23, 59, 59, 999); // 7/7
+                        } else {
+                            startDate = new Date(endYear, 6, 8, 0, 0, 0, 0); // 8/7
+                            endDate = new Date(endYear, 7, 31, 23, 59, 59, 999); // 31/8
+                        }
+
+                        if (now < startDate) {
+                            statusText = '<span style="color:orange">Chưa mở</span>';
+                            isFuture = true;
+                        } else if (now >= startDate && now <= endDate) {
+                            statusText = '<span style="color:green">Hoạt động</span>';
+                        } else {
+                            statusText = '<span style="color:gray">Không hoạt động</span>';
+                        }
+                    } else {
+                        statusText = '<span style="color:gray">Không hoạt động</span>';
+                    }
+                }
+
                 html += `
                     <tr>
                         <td><strong>${item.MALTC}</strong></td>
-                        <td>${item.MAMH}</td>
-                        <td>${item.TENMH}</td>
+                        <td>${cleanNienkhoa}</td>
+                        <td>Học kỳ ${item.HOCKY}</td>
+                        <td>${cleanMamh}</td>
+                        <td>${cleanTenmh}</td>
                         <td>${item.NHOM}</td>
-                        <td>${item.HOTEN_GV}</td>
-                        <td>${item.HUYLOP ? '<span style="color:red">Đã Hủy</span>' : '<span style="color:green">Mở</span>'}</td>
+                        <td>${cleanHotenGv}</td>
+                        <td>${statusText}</td>
                         <td class="action-btns">
-                            <button class="btn-sm btn-primary" ${item.HUYLOP ? 'disabled' : ''} onclick="openGradeForm('${item.MALTC}', '${item.TENMH}', '${item.NHOM}')">
+                            <button class="btn-sm btn-primary" ${item.HUYLOP || isFuture ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''} onclick="openGradeForm('${item.MALTC}', '${cleanTenmh}', '${item.NHOM}')">
                                 Cập nhật điểm
                             </button>
                         </td>
@@ -96,7 +191,7 @@ window.loadNhapDiemClasses = async () => {
                 `;
             });
         } else {
-            html += `<tr><td colspan="7" style="text-align:center;">Chưa có dữ liệu Lớp tín chỉ cho Học kỳ / Niên khóa này.</td></tr>`;
+            html += `<tr><td colspan="9" style="text-align:center;">Chưa có dữ liệu Lớp tín chỉ cho Học kỳ / Niên khóa này.</td></tr>`;
         }
         html += `</tbody></table>`;
         container.innerHTML = html;
@@ -170,6 +265,12 @@ window.openGradeForm = async (maltc, tenmh, nhom) => {
         html += `</tbody></table>`;
         container.innerHTML = html;
 
+        // Tự động cuộn trang xuống vùng nhập điểm
+        const section = document.getElementById('nd_studentsSection');
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
     } catch (err) {
         container.innerHTML = `<p style="color:red; padding: 15px;">Lỗi kết nối: ${err.message}</p>`;
     }
@@ -178,9 +279,18 @@ window.openGradeForm = async (maltc, tenmh, nhom) => {
 // Auto calc on typing
 window.previewCalc = (inputEl) => {
     let row = inputEl.closest('tr');
-    let cc = parseFloat(row.querySelector('.cc-grade').value) || 0;
-    let gk = parseFloat(row.querySelector('.gk-grade').value) || 0;
-    let ck = parseFloat(row.querySelector('.ck-grade').value) || 0;
+    let ccVal = row.querySelector('.cc-grade').value.trim();
+    let gkVal = row.querySelector('.gk-grade').value.trim();
+    let ckVal = row.querySelector('.ck-grade').value.trim();
+    
+    if (ccVal === '' || gkVal === '' || ckVal === '') {
+        row.querySelector('.tong-grade').textContent = '-';
+        return;
+    }
+
+    let cc = parseFloat(ccVal);
+    let gk = parseFloat(gkVal);
+    let ck = parseFloat(ckVal);
     
     // Trọng số: 10% CC, 30% GK, 60% CK
     let sum = (cc * 0.1) + (gk * 0.3) + (ck * 0.6);

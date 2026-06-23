@@ -3,6 +3,22 @@
 // ==========================================
 
 function renderTaoTaiKhoanManager(container) {
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const userRole = user ? user.role : 'PGV';
+
+    let roleOptions = '<option value="">-- Chọn quyền --</option>';
+    if (userRole === 'PGV') {
+        roleOptions += `
+            <option value="PGV">Phòng Giáo Vụ (PGV)</option>
+            <option value="KHOA">Khoa / Giảng Viên (KHOA)</option>
+        `;
+    } else {
+        roleOptions += `
+            <option value="KHOA">Khoa / Giảng Viên (KHOA)</option>
+        `;
+    }
+
     let html = `
         <div class="action-panel" style="max-width: 600px; margin: 0 auto;">
             <div class="panel-header" style="background:#f0f9ff; padding:15px;">
@@ -23,10 +39,7 @@ function renderTaoTaiKhoanManager(container) {
                     <div class="form-group">
                         <label>Quyền hạn (Role)</label>
                         <select id="tk_role" required>
-                            <option value="">-- Chọn quyền --</option>
-                            <option value="PGV">Phòng Giáo Vụ (PGV)</option>
-                            <option value="KHOA">Khoa / Giảng Viên (KHOA)</option>
-                            <option value="SINHVIEN">Sinh Viên (SINHVIEN)</option>
+                            ${roleOptions}
                         </select>
                     </div>
                     

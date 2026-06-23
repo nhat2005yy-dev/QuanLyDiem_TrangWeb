@@ -12,23 +12,33 @@ async function renderGiangVienManager(container) {
         const dataKhoa = await resKhoa.json();
         const khoaDict = {};
         if(dataKhoa.success) {
-            dataKhoa.data.forEach(k => { khoaDict[k.MAKHOA] = k.TENKHOA; });
+            dataKhoa.data.forEach(k => { khoaDict[k.MAKHOA.trim()] = k.TENKHOA.trim(); });
         }
 
-        let html = `
-            <div style="margin-bottom: 20px;">
-                <button class="btn btn-primary" onclick="showGiangVienForm()"><i class="fa-solid fa-plus"></i> Thêm Giảng Viên</button>
-            </div>
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        const isReadOnly = user && user.role === 'KHOA';
+
+        let html = '';
+        if (!isReadOnly) {
+            html += `
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-primary" onclick="showGiangVienForm()"><i class="fa-solid fa-plus"></i> Thêm Giảng Viên</button>
+                </div>
+            `;
+        }
+
+        html += `
             <div class="data-table-container">
                 <table class="data-table" style="font-size:0.9rem;">
-                    <thead><tr><th>Mã NV</th><th>Họ Tên</th><th>Học Vị/Hàm</th><th>Chuyên Môn</th><th>Khoa</th><th>Thao tác</th></tr></thead>
+                    <thead><tr><th>Mã NV</th><th>Họ Tên</th><th>Học Vị/Hàm</th><th>Chuyên Môn</th><th>Khoa</th>${isReadOnly ? '' : '<th>Thao tác</th>'}</tr></thead>
                     <tbody>
         `;
         
         if (dataGv.success && dataGv.data.length > 0) {
             dataGv.data.forEach(item => {
                 const hvhh = [item.HOCHAM, item.HOCVI].filter(x => x).join(', ') || '-';
-                const tk = khoaDict[item.MAKHOA] || item.MAKHOA;
+                const tk = khoaDict[item.MAKHOA ? item.MAKHOA.trim() : ''] || (item.MAKHOA ? item.MAKHOA.trim() : '');
                 const gvJson = encodeURIComponent(JSON.stringify(item));
                 html += `
                     <tr>
@@ -37,15 +47,17 @@ async function renderGiangVienManager(container) {
                         <td>${hvhh}</td>
                         <td>${item.CHUYENMON || '-'}</td>
                         <td>${tk}</td>
+                        ${isReadOnly ? '' : `
                         <td class="action-btns">
                             <button class="btn-sm btn-secondary" onclick="showGiangVienForm('${gvJson}')">Sửa</button>
                             <button class="btn-sm btn-danger" onclick="deleteGiangVien('${item.MAGV}')">Xóa</button>
                         </td>
+                        `}
                     </tr>
                 `;
             });
         } else {
-            html += `<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu Giảng Viên</td></tr>`;
+            html += `<tr><td colspan="${isReadOnly ? 5 : 6}" style="text-align:center;">Chưa có dữ liệu Giảng Viên</td></tr>`;
         }
         html += `</tbody></table></div>`;
         container.innerHTML = html;
@@ -64,7 +76,9 @@ window.showGiangVienForm = async (gvJsonStr = null) => {
         const khoaData = await khoaRes.json();
         if(khoaData.success) {
             khoaData.data.forEach(k => {
-                khoaOptions += `<option value="${k.MAKHOA}" ${gv && gv.MAKHOA === k.MAKHOA ? 'selected' : ''}>${k.TENKHOA}</option>`;
+                const cleanKMa = k.MAKHOA.trim();
+                const cleanGvMa = gv && gv.MAKHOA ? gv.MAKHOA.trim() : '';
+                khoaOptions += `<option value="${cleanKMa}" ${cleanGvMa === cleanKMa ? 'selected' : ''}>${k.TENKHOA.trim()}</option>`;
             });
         }
     } catch(e) {}
@@ -73,7 +87,10 @@ window.showGiangVienForm = async (gvJsonStr = null) => {
         <form id="gvForm">
             <div class="form-group">
                 <label>Mã Giảng Viên (MAGV)</label>
-                <input type="text" id="gv_magv" value="${gv ? gv.MAGV : ''}" ${isEdit ? 'readonly style="background:#f3f4f6"' : 'required'}>
+                ${isEdit 
+                    ? `<input type="text" id="gv_magv" value="${gv.MAGV}" readonly style="background:#f3f4f6">`
+                    : `<div id="gv_magv_preview" style="font-weight: bold; font-size: 1.1rem; color: #1e3a8a; padding: 8px 12px; background: #e0f2fe; border-radius: 4px;">Đang tải mã giảng viên dự kiến...</div>`
+                }
             </div>
             <div style="display:flex; gap:10px;">
                 <div class="form-group" style="flex:1;">
@@ -111,10 +128,33 @@ window.showGiangVienForm = async (gvJsonStr = null) => {
     `;
     openModal(isEdit ? 'Sửa Giảng Viên' : 'Thêm Giảng Viên', formHTML);
 
+    if (!isEdit) {
+        try {
+            const resNextId = await fetch('/api/giangvien/next-id');
+            const dataNextId = await resNextId.json();
+            const previewEl = document.getElementById('gv_magv_preview');
+            if (previewEl) {
+                if (dataNextId.success) {
+                    previewEl.innerText = dataNextId.magv;
+                } else {
+                    previewEl.innerText = 'Lỗi: ' + (dataNextId.message || 'Không thể lấy mã dự kiến');
+                    previewEl.style.color = '#dc2626';
+                    previewEl.style.background = '#fef2f2';
+                }
+            }
+        } catch (err) {
+            const previewEl = document.getElementById('gv_magv_preview');
+            if (previewEl) {
+                previewEl.innerText = 'Lỗi kết nối';
+                previewEl.style.color = '#dc2626';
+                previewEl.style.background = '#fef2f2';
+            }
+        }
+    }
+
     document.getElementById('gvForm').onsubmit = async (e) => {
         e.preventDefault();
         const bodyData = {
-            MAGV: document.getElementById('gv_magv').value,
             HO: document.getElementById('gv_ho').value,
             TEN: document.getElementById('gv_ten').value,
             HOCVI: document.getElementById('gv_hocvi').value || null,
@@ -123,7 +163,7 @@ window.showGiangVienForm = async (gvJsonStr = null) => {
             MAKHOA: document.getElementById('gv_makhoa').value
         };
         const method = isEdit ? 'PUT' : 'POST';
-        const url = isEdit ? `/api/giangvien/${bodyData.MAGV}` : `/api/giangvien`;
+        const url = isEdit ? `/api/giangvien/${gv.MAGV}` : `/api/giangvien`;
 
         try {
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyData) });

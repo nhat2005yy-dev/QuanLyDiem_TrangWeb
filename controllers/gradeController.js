@@ -1,12 +1,10 @@
-const { sql } = require('../config/db');
+const gradeService = require('../services/gradeService');
 
 const gradeController = {
     getGrades: async (req, res) => {
         try {
-            // Lấy MASV từ query string (?MASV=...)
             const { MASV } = req.query;
 
-            // Kiểm tra MASV có được gửi lên không
             if (!MASV) {
                 return res.status(400).json({
                     success: false,
@@ -14,31 +12,12 @@ const gradeController = {
                 });
             }
 
-            const request = new sql.Request();
-            // Truyền tham số để tránh SQL Injection
-            request.input('MASV', sql.VarChar, MASV);
-
-            // Câu truy vấn join DANGKY, LOPTINCHI, MONHOC và tính điểm tổng
-            // Giả định trọng số: CC 10%, GK 30%, CK 60%
-            const query = `
-                SELECT 
-                    MH.TENMH, 
-                    DK.DIEM_CC, 
-                    DK.DIEM_GK, 
-                    DK.DIEM_CK,
-                    ROUND((ISNULL(DK.DIEM_CC, 0) * 0.1 + ISNULL(DK.DIEM_GK, 0) * 0.3 + ISNULL(DK.DIEM_CK, 0) * 0.6), 2) AS DIEM_TONG
-                FROM DANGKY DK
-                JOIN LOPTINCHI LTC ON DK.MALTC = LTC.MALTC
-                JOIN MONHOC MH ON LTC.MAMH = MH.MAMH
-                WHERE DK.MASV = @MASV
-            `;
-
-            const result = await request.query(query);
+            const data = await gradeService.getGrades(MASV);
 
             res.status(200).json({
                 success: true,
-                count: result.recordset.length,
-                data: result.recordset
+                count: data.length,
+                data: data
             });
 
         } catch (error) {
@@ -53,33 +32,33 @@ const gradeController = {
 
     updateGrades: async (req, res) => {
         try {
-            // Bước dễ nhất: lấy dữ liệu điểm từ body request
             const { MASV, MALTC, DIEM_CC, DIEM_GK, DIEM_CK } = req.body;
 
-            // Kiểm tra thông tin đầu vào
             if (!MASV || !MALTC) {
                 return res.status(400).json({ message: "Vui lòng truyền đủ MASV và MALTC" });
             }
 
-            const request = new sql.Request();
-            request.input('MASV', MASV);
-            request.input('MALTC', MALTC);
-            request.input('DIEM_CC', DIEM_CC);
-            request.input('DIEM_GK', DIEM_GK);
-            request.input('DIEM_CK', DIEM_CK);
+            // Ràng buộc thời gian: Không cho phép nhập điểm lớp tương lai
+            const timeStatus = await gradeService.getClassStatus(parseInt(MALTC));
+            if (timeStatus === 'FUTURE') {
+                return res.status(400).json({ success: false, message: 'Lớp tín chỉ chưa mở (trong tương lai), không thể nhập điểm!' });
+            }
 
-            // Cập nhật điểm vào bảng DANGKY
-            const updateQuery = `
-                UPDATE DANGKY
-                SET DIEM_CC = @DIEM_CC,
-                    DIEM_GK = @DIEM_GK,
-                    DIEM_CK = @DIEM_CK
-                WHERE MASV = @MASV AND MALTC = @MALTC
-            `;
-            
-            await request.query(updateQuery);
+            // Bảo mật: Nếu là KHOA, kiểm tra giảng viên có dạy lớp này hay không
+            if (req.user && req.user.role === 'KHOA') {
+                const isOwner = await gradeService.checkClassLecturer(parseInt(MALTC), req.user.username);
+                if (!isOwner) {
+                    return res.status(403).json({ success: false, message: 'Bạn không có quyền nhập điểm cho lớp tín chỉ của giảng viên khác!' });
+                }
+            }
 
-            return res.status(200).json({ message: "Update success" });
+            const result = await gradeService.updateGrades({ MASV, MALTC, DIEM_CC, DIEM_GK, DIEM_CK });
+
+            if (result.success) {
+                return res.status(200).json({ message: "Update success" });
+            } else {
+                return res.status(400).json({ message: result.message });
+            }
             
         } catch (error) {
             console.error('Error updating grades:', error);
@@ -89,40 +68,37 @@ const gradeController = {
 
     updateBulkGrades: async (req, res) => {
         try {
-            const gradesArray = req.body; // Expect an array of objects
+            const gradesArray = req.body;
             if (!Array.isArray(gradesArray) || gradesArray.length === 0) {
                 return res.status(400).json({ success: false, message: "Dữ liệu không hợp lệ" });
             }
 
-            const request = new sql.Request();
+            const uniqMaltcs = [...new Set(gradesArray.map(g => parseInt(g.MALTC)))];
 
-            // Using transaction for bulk update to ensure atomicity
-            const transaction = new sql.Transaction();
-            await transaction.begin();
-            
-            try {
-                for (const grade of gradesArray) {
-                    const reqTx = new sql.Request(transaction);
-                    reqTx.input('MASV', sql.VarChar, grade.MASV);
-                    reqTx.input('MALTC', sql.Int, grade.MALTC);
-                    reqTx.input('DIEM_CC', sql.Float, grade.DIEM_CC);
-                    reqTx.input('DIEM_GK', sql.Float, grade.DIEM_GK);
-                    reqTx.input('DIEM_CK', sql.Float, grade.DIEM_CK);
-
-                    await reqTx.query(`
-                        UPDATE DANGKY
-                        SET DIEM_CC = @DIEM_CC,
-                            DIEM_GK = @DIEM_GK,
-                            DIEM_CK = @DIEM_CK
-                        WHERE MASV = @MASV AND MALTC = @MALTC
-                    `);
+            // Ràng buộc thời gian: Không cho phép nhập điểm lớp tương lai
+            for (const maltc of uniqMaltcs) {
+                const timeStatus = await gradeService.getClassStatus(maltc);
+                if (timeStatus === 'FUTURE') {
+                    return res.status(400).json({ success: false, message: `Lớp tín chỉ #${maltc} chưa mở (trong tương lai), không thể nhập điểm!` });
                 }
-                
-                await transaction.commit();
-                return res.status(200).json({ success: true, message: "Cập nhật điểm hàng loạt thành công!" });
-            } catch (txError) {
-                await transaction.rollback();
-                throw txError;
+            }
+
+            // Bảo mật: Nếu là KHOA, kiểm tra giảng viên có dạy tất cả các lớp này hay không
+            if (req.user && req.user.role === 'KHOA') {
+                for (const maltc of uniqMaltcs) {
+                    const isOwner = await gradeService.checkClassLecturer(maltc, req.user.username);
+                    if (!isOwner) {
+                        return res.status(403).json({ success: false, message: `Bạn không có quyền nhập điểm cho lớp tín chỉ #${maltc} của giảng viên khác!` });
+                    }
+                }
+            }
+
+            const result = await gradeService.updateBulkGrades(gradesArray);
+            
+            if (result.success) {
+                return res.status(200).json(result);
+            } else {
+                return res.status(400).json(result);
             }
 
         } catch (error) {
@@ -139,30 +115,26 @@ const gradeController = {
                 return res.status(400).json({ success: false, message: 'Vui lòng cung cấp MALTC' });
             }
 
-            const request = new sql.Request();
-            request.input('MALTC', sql.Int, MALTC);
+            // Ràng buộc thời gian: Không cho phép xem lớp tương lai để nhập điểm
+            const timeStatus = await gradeService.getClassStatus(parseInt(MALTC));
+            if (timeStatus === 'FUTURE') {
+                return res.status(400).json({ success: false, message: 'Lớp tín chỉ chưa mở (trong tương lai), không thể xem danh sách nhập điểm!' });
+            }
 
-            const query = `
-                SELECT 
-                    SV.MASV, 
-                    (SV.HO + ' ' + SV.TEN) AS HOTEN_SV,
-                    SV.MALOP,
-                    DK.DIEM_CC, 
-                    DK.DIEM_GK, 
-                    DK.DIEM_CK,
-                    ROUND((ISNULL(DK.DIEM_CC, 0) * 0.1 + ISNULL(DK.DIEM_GK, 0) * 0.3 + ISNULL(DK.DIEM_CK, 0) * 0.6), 2) AS DIEM_TONG
-                FROM DANGKY DK
-                JOIN SINHVIEN SV ON DK.MASV = SV.MASV
-                WHERE DK.MALTC = @MALTC
-                ORDER BY SV.TEN ASC, SV.HO ASC
-            `;
+            // Bảo mật: Nếu là KHOA, kiểm tra giảng viên có dạy lớp này hay không
+            if (req.user && req.user.role === 'KHOA') {
+                const isOwner = await gradeService.checkClassLecturer(parseInt(MALTC), req.user.username);
+                if (!isOwner) {
+                    return res.status(403).json({ success: false, message: 'Bạn không có quyền xem danh sách sinh viên lớp tín chỉ của giảng viên khác!' });
+                }
+            }
 
-            const result = await request.query(query);
+            const data = await gradeService.getStudentsByLTC(MALTC);
 
             res.status(200).json({
                 success: true,
-                count: result.recordset.length,
-                data: result.recordset
+                count: data.length,
+                data: data
             });
         } catch (error) {
             console.error('Error fetching students by class:', error);

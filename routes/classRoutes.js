@@ -6,6 +6,7 @@ const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 
 // Các Action cho Lớp Tín Chỉ
 router.get('/classes', classController.getClasses);
+router.get('/classes/next-nhom', verifyToken, classController.getNextNhom);
 router.post('/classes', verifyToken, checkRole(['PGV']), classController.addLopTinChi);
 router.put('/classes/:id', verifyToken, checkRole(['PGV']), classController.updateLopTinChi);
 router.delete('/classes/:id', verifyToken, checkRole(['PGV']), classController.deleteLopTinChi);
